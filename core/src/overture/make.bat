@@ -5,13 +5,13 @@ IF NOT DEFINED ANDROID_NDK_HOME (
 	SET ANDROID_NDK_HOME=%ANDROID_HOME%\ndk-bundle
 )
 
-SET DIR=%CD%
+SET DIR=%~dp0
 SET MIN_API=%1%
 SET TARGET=%DIR%\bin
 SET DEPS=%DIR%\.deps
 
 SET ANDROID_ARM_TOOLCHAIN=%DEPS%\android-toolchain-%MIN_API%-arm
-SET ANDROID_ARM64_TOOLCHAIN=%DEPS%\android-toolchain-21-arm64
+SET ANDROID_ARM64_TOOLCHAIN=%DEPS%\android-toolchain-%MIN_API%-arm64
 SET ANDROID_X86_TOOLCHAIN=%DEPS%\android-toolchain-%MIN_API%-x86
 
 SET ANDROID_ARM_CC=%ANDROID_ARM_TOOLCHAIN%\bin\arm-linux-androideabi-clang
@@ -37,7 +37,7 @@ IF NOT EXIST %ANDROID_ARM_CC% (
 IF NOT EXIST %ANDROID_ARM64_CC% (
     ECHO "Make standalone toolchain for ARM64 arch"
     %ANDROID_NDK_HOME%\build\tools\make_standalone_toolchain.py --arch arm64 ^
-        --api 21 --install-dir %ANDROID_ARM64_TOOLCHAIN%
+        --api %MIN_API% --install-dir %ANDROID_ARM64_TOOLCHAIN%
 )
 
 IF NOT EXIST %ANDROID_X86_CC% (
@@ -46,7 +46,7 @@ IF NOT EXIST %ANDROID_X86_CC% (
         --api %MIN_API% --install-dir %ANDROID_X86_TOOLCHAIN%
 )
 
-IF NOT EXIST %DIR%\go\bin\go (
+IF NOT EXIST %DIR%\go\bin\go.exe (
     ECHO "Build the custom go"
 
     PUSHD %DIR%\go\src

@@ -9,7 +9,6 @@ import android.support.annotation.AttrRes
 import android.support.v4.app.Fragment
 import android.support.v4.app.FragmentManager
 import android.support.v7.util.SortedList
-import android.view.accessibility.AccessibilityManager
 import android.util.TypedValue
 import com.github.shadowsocks.App.Companion.app
 import com.github.shadowsocks.JniHelper
@@ -22,11 +21,6 @@ private val fieldChildFragmentManager by lazy {
     field
 }
 
-fun isAccessibilityEnabled(context: Context): Boolean {
-    val am = context.getSystemService(Context.ACCESSIBILITY_SERVICE) as AccessibilityManager
-    return am.isEnabled()
-}
-
 fun String.isNumericAddress() = JniHelper.parseNumericAddress(this) != null
 fun String.parseNumericAddress(): InetAddress? {
     val addr = JniHelper.parseNumericAddress(this)
@@ -34,8 +28,8 @@ fun String.parseNumericAddress(): InetAddress? {
 }
 
 fun parsePort(str: String?, default: Int, min: Int = 1025): Int {
-    val x = str?.toIntOrNull() ?: default
-    return if (x < min || x > 65535) default else x
+    val value = str?.toIntOrNull() ?: default
+    return if (value < min || value > 65535) default else value
 }
 
 fun broadcastReceiver(callback: (Context, Intent) -> Unit): BroadcastReceiver = object : BroadcastReceiver() {
@@ -78,6 +72,6 @@ private class SortedListIterable<out T>(private val list: SortedList<T>) : Itera
 private class SortedListIterator<out T>(private val list: SortedList<T>) : Iterator<T> {
     private var count = 0
     override fun hasNext() = count < list.size()
-    override fun next(): T = list[count++]
+    override fun next(): T = if (hasNext()) list[count++] else throw NoSuchElementException()
 }
 fun <T> SortedList<T>.asIterable(): Iterable<T> = SortedListIterable(this)

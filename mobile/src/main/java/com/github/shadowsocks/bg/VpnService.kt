@@ -24,12 +24,12 @@ import android.app.Service
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.LocalSocket
-import android.os.Build
 import android.os.IBinder
 import android.os.ParcelFileDescriptor
 import android.util.Log
 import com.github.shadowsocks.App.Companion.app
 import com.github.shadowsocks.JniHelper
+import com.github.shadowsocks.MainActivity
 import com.github.shadowsocks.R
 import com.github.shadowsocks.VpnRequestActivity
 import com.github.shadowsocks.acl.Acl
@@ -38,6 +38,7 @@ import com.github.shadowsocks.utils.Subnet
 import com.github.shadowsocks.utils.parseNumericAddress
 import java.io.File
 import java.io.FileDescriptor
+import java.io.IOException
 import java.lang.reflect.Method
 import java.util.*
 import android.net.VpnService as BaseVpnService
@@ -55,16 +56,22 @@ class VpnService : BaseVpnService(), LocalDnsService.Interface {
         override val socketFile: File = File(app.deviceContext.filesDir, "protect_path")
 
         override fun accept(socket: LocalSocket) {
+            var success = false
             try {
                 socket.inputStream.read()
                 val fds = socket.ancillaryFileDescriptors
                 if (fds.isEmpty()) return
                 val fd = getInt.invoke(fds.first()) as Int
-                val ret = protect(fd)
+                success = protect(fd)
                 JniHelper.close(fd) // Trick to close file decriptor
-                socket.outputStream.write(if (ret) 0 else 1)
             } catch (e: Exception) {
                 Log.e(tag, "Error when protect socket", e)
+                app.track(e)
+            }
+            try {
+                socket.outputStream.write(if (success) 0 else 1)
+            } catch (e: IOException) {
+                Log.e(tag, "Error when returning result in protect", e)
                 app.track(e)
             }
         }
@@ -118,7 +125,7 @@ class VpnService : BaseVpnService(), LocalDnsService.Interface {
         super.startNativeProcesses()
 
         val fd = startVpn()
-        if (!sendFd(fd)) throw Exception("sendFd failed")
+        if (!sendFd(fd)) throw IOException("sendFd failed")
     }
 
     override fun buildAdditionalArguments(cmd: ArrayList<String>): ArrayList<String> {
@@ -129,6 +136,7 @@ class VpnService : BaseVpnService(), LocalDnsService.Interface {
     private fun startVpn(): Int {
         val profile = data.profile!!
         val builder = Builder()
+                .setConfigureIntent(MainActivity.pendingIntent(this))
                 .setSession(profile.formattedName)
                 .setMtu(VPN_MTU)
                 .addAddress(PRIVATE_VLAN.format(Locale.ENGLISH, "1"), 24)
@@ -140,7 +148,7 @@ class VpnService : BaseVpnService(), LocalDnsService.Interface {
             builder.addRoute("::", 0)
         }
 
-        if (Build.VERSION.SDK_INT >= 21 && profile.proxyApps) {
+        if (profile.proxyApps) {
             val me = packageName
             profile.individual.split('\n')
                     .filter { it != me }
